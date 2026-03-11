@@ -159,8 +159,10 @@ ${context}
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (error) {
-    console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Chat API error:", msg);
+    // Return error details to help debug
+    return new Response(JSON.stringify({ error: "Internal server error", detail: msg, hasKey: !!process.env.OPENAI_API_KEY }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
