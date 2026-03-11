@@ -39,7 +39,13 @@ export default function AvatarVideo({
     setStatus("loading");
 
     try {
-      const avatar = new StreamingAvatar({ token: apiKey });
+      // Exchange API key for a session token server-side
+      const tokenRes = await fetch("/api/heygen-token", { method: "POST" });
+      if (!tokenRes.ok) throw new Error(`API request failed with status ${tokenRes.status}`);
+      const { token } = await tokenRes.json();
+      if (!token) throw new Error("No token received from HeyGen");
+
+      const avatar = new StreamingAvatar({ token });
       avatarRef.current = avatar;
 
       avatar.on(StreamingEvents.AVATAR_START_TALKING, () => {
