@@ -32,8 +32,14 @@ export async function POST() {
     const data = await res.json();
 
     if (data.code !== 1000) {
-      return new Response(JSON.stringify({ error: data.message || "LiveAvatar error" }), {
-        status: 500,
+      const isConcurrency = (data.message || "").toLowerCase().includes("concurren");
+      return new Response(JSON.stringify({
+        error: isConcurrency
+          ? "Session concurrency limit reached — retrying…"
+          : (data.message || "LiveAvatar error"),
+        concurrency: isConcurrency,
+      }), {
+        status: 503,
         headers: { "Content-Type": "application/json" },
       });
     }

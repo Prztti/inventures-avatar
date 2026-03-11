@@ -21,7 +21,7 @@ export default function AvatarVideo({
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  const initAvatar = useCallback(async () => {
+  const initAvatar = useCallback(async (retries = 3) => {
     setStatus("loading");
 
     try {
@@ -32,6 +32,11 @@ export default function AvatarVideo({
       const tokenData = await tokenRes.json();
 
       if (!tokenData.token) {
+        // Auto-retry on concurrency limit (old session still closing)
+        if (tokenData.concurrency && retries > 0) {
+          setTimeout(() => initAvatar(retries - 1), 4000);
+          return;
+        }
         throw new Error(tokenData.error || "No token received");
       }
 
