@@ -75,7 +75,7 @@ export default function AvatarVideo({
         quality: AvatarQuality.Low,
         avatarName: avatarId,
         voice: {
-          voiceId: "en-US-EmmaNeural",
+          voiceId: "2f72ee82b83d4b00af16c4771d611752", // Jenny - Professional EN female
           emotion: VoiceEmotion.FRIENDLY,
         },
         language: "en",
