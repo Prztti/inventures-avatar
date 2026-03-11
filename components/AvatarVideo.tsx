@@ -39,8 +39,8 @@ export default function AvatarVideo({
     setStatus("loading");
 
     try {
-      // Exchange API key for a session token server-side
-      const tokenRes = await fetch("/api/heygen-token", { method: "POST" });
+      // Exchange API key for a session token server-side (absolute URL for iframe compat)
+      const tokenRes = await fetch("https://inventures-avatar.vercel.app/api/heygen-token", { method: "POST" });
       if (!tokenRes.ok) throw new Error(`API request failed with status ${tokenRes.status}`);
       const { token } = await tokenRes.json();
       if (!token) throw new Error("No token received from HeyGen");
