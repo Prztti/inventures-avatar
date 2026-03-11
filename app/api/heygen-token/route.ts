@@ -24,8 +24,9 @@ export async function POST() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        mode: "LITE",
+        mode: "CUSTOM",  // CUSTOM mode supports repeat() / AVATAR_SPEAK_TEXT
         avatar_id: AVATAR_ID,
+        voice_id: "4f3b1e99-b580-4f05-9b67-a5f585be0232",  // Judy - Professional
       }),
     });
 

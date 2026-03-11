@@ -81,11 +81,13 @@ export default function AvatarVideo({
   useEffect(() => {
     if (!pendingSpeak || status !== "ready" || !sessionRef.current) return;
     try {
-      sessionRef.current.message(pendingSpeak);
+      // repeat() = AVATAR_SPEAK_TEXT — direct TTS (works in CUSTOM mode)
+      sessionRef.current.repeat(pendingSpeak);
     } catch (e) {
-      console.error(e);
+      console.error("speak error:", e);
     } finally {
-      onSpeakComplete?.();
+      // Small delay before clearing so avatar has time to start
+      setTimeout(() => onSpeakComplete?.(), 500);
     }
   }, [pendingSpeak, status]);
 
