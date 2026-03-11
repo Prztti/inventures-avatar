@@ -30,8 +30,8 @@ const WELCOME_DE: Message = {
     "Guten Tag — ich bin der InVentures AI Assistent. Ich kann unsere Services erklären, Ihnen den richtigen Track (Tech & AI oder Real Estate) zeigen und Sie mit dem Team verbinden. Was führt Sie heute hierher?",
 };
 
-export default function AvatarWidget() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function AvatarWidget({ embedded = false }: { embedded?: boolean }) {
+  const [isOpen, setIsOpen] = useState(embedded);
   const [language, setLanguage] = useState<"en" | "de">("en");
   const [messages, setMessages] = useState<Message[]>([WELCOME_EN]);
   const [input, setInput] = useState("");
