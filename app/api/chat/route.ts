@@ -9,7 +9,11 @@ export const maxDuration = 30;
 // Lazy init — avoids build-time crash when env vars are not set
 let _openai: OpenAI | null = null;
 const getOpenAI = () => {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!_openai) _openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    // Force Node.js fetch (fixes Vercel serverless connection errors)
+    defaultHeaders: { "User-Agent": "inventures-avatar/1.0" },
+  });
   return _openai;
 };
 
