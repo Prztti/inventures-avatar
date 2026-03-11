@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { Resend } from "resend";
 import { retrieveRelevantChunks, formatContext } from "@/lib/rag";
 import { SYSTEM_PROMPT_EN, SYSTEM_PROMPT_DE } from "@/lib/system-prompt";
@@ -6,16 +5,26 @@ import { SYSTEM_PROMPT_EN, SYSTEM_PROMPT_DE } from "@/lib/system-prompt";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-// Lazy init — avoids build-time crash when env vars are not set
-let _openai: OpenAI | null = null;
-const getOpenAI = () => {
-  if (!_openai) _openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    // Force Node.js fetch (fixes Vercel serverless connection errors)
-    defaultHeaders: { "User-Agent": "inventures-avatar/1.0" },
+// Direct fetch to OpenAI — avoids SDK connection issues on Vercel
+async function callOpenAI(messages: Array<{role: string; content: string}>, tools?: unknown[]) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages,
+      tools: tools || undefined,
+      tool_choice: tools ? "auto" : undefined,
+      temperature: 0.4,
+      max_tokens: 500,
+    }),
   });
-  return _openai;
-};
+  if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -23,7 +32,7 @@ interface Message {
 }
 
 // Function definition — LLM calls this when it has name + email + inquiry
-const LEAD_TOOL: OpenAI.Chat.ChatCompletionTool = {
+const LEAD_TOOL = {
   type: "function",
   function: {
     name: "send_lead_email",
@@ -105,7 +114,7 @@ KNOWLEDGE BASE CONTEXT:
 ${context}
 ---`;
 
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    const messages = [
       { role: "system", content: systemWithContext },
       ...history.map((msg) => ({
         role: msg.role as "user" | "assistant",
@@ -114,15 +123,8 @@ ${context}
       { role: "user", content: message },
     ];
 
-    // First pass — non-streaming, check for function call
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      tools: [LEAD_TOOL],
-      tool_choice: "auto",
-      temperature: 0.4,
-      max_tokens: 500,
-    });
+    // First pass — check for function call
+    const response = await callOpenAI(messages, [LEAD_TOOL]);
 
     const choice = response.choices[0];
 
