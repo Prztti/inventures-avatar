@@ -40,19 +40,10 @@ export default function AvatarWidget({ embedded = false }: { embedded?: boolean 
   const [leadCaptureLoading, setLeadCaptureLoading] = useState(false);
   const [leadCaptureSuccess, setLeadCaptureSuccess] = useState(false);
   const [pendingSpeak, setPendingSpeak] = useState<string | undefined>();
-  const [hasHeyGen, setHasHeyGen] = useState(false);
+  const [hasHeyGen] = useState(true); // LiveAvatar always available
+  const [avatarStarted, setAvatarStarted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  // Check for HeyGen availability client-side
-  useEffect(() => {
-    setHasHeyGen(
-      !!(
-        process.env.NEXT_PUBLIC_HEYGEN_API_KEY &&
-        process.env.NEXT_PUBLIC_HEYGEN_AVATAR_ID
-      )
-    );
-  }, []);
 
   const handleLanguageToggle = useCallback(
     (lang: "en" | "de") => {
@@ -297,14 +288,30 @@ export default function AvatarWidget({ embedded = false }: { embedded?: boolean 
           </div>
 
           {/* Video area (only if HeyGen available) */}
-          {hasHeyGen && (
-            <div className="h-48 flex-shrink-0 border-b border-panel-border">
+          {/* Avatar video area — only loads after user clicks Start */}
+          <div className="h-48 flex-shrink-0 border-b border-panel-border relative">
+            {avatarStarted ? (
               <AvatarVideo
                 pendingSpeak={pendingSpeak}
                 onSpeakComplete={() => setPendingSpeak(undefined)}
               />
-            </div>
-          )}
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0a] to-[#111]">
+                <div className="w-16 h-16 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mb-3">
+                  <span className="text-gold font-semibold text-xl">IV</span>
+                </div>
+                <button
+                  onClick={() => setAvatarStarted(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gold/20 border border-gold/40 text-gold text-xs font-medium hover:bg-gold/30 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                  Start Video Avatar
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Chat messages */}
           <div className="flex-1 overflow-hidden flex flex-col">
