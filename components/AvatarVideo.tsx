@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import StreamingAvatar, {
-  AvatarQuality,
-  StreamingEvents,
-  TaskType,
-  VoiceEmotion,
-} from "@heygen/streaming-avatar";
+import { LiveAvatarSession, SessionEvent } from "@heygen/liveavatar-web-sdk";
 
 interface AvatarVideoProps {
   onReady?: () => void;
@@ -22,105 +17,80 @@ export default function AvatarVideo({
   onSpeakComplete,
 }: AvatarVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const avatarRef = useRef<StreamingAvatar | null>(null);
+  const sessionRef = useRef<LiveAvatarSession | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  const apiKey = process.env.NEXT_PUBLIC_HEYGEN_API_KEY;
-  const avatarId = process.env.NEXT_PUBLIC_HEYGEN_AVATAR_ID;
-
   const initAvatar = useCallback(async () => {
-    if (!apiKey || !avatarId) {
-      setStatus("error");
-      setErrorMsg("HeyGen credentials not configured");
-      return;
-    }
-
     setStatus("loading");
 
     try {
-      // Exchange API key for a session token server-side (absolute URL for iframe compat)
-      const tokenRes = await fetch("https://inventures-avatar.vercel.app/api/heygen-token", { method: "POST" });
-      if (!tokenRes.ok) throw new Error(`API request failed with status ${tokenRes.status}`);
-      const { token } = await tokenRes.json();
-      if (!token) throw new Error("No token received from HeyGen");
-
-      const avatar = new StreamingAvatar({ token });
-      avatarRef.current = avatar;
-
-      avatar.on(StreamingEvents.AVATAR_START_TALKING, () => {
-        // Avatar started speaking
+      // Get session token from backend
+      const tokenRes = await fetch("https://inventures-avatar.vercel.app/api/heygen-token", {
+        method: "POST",
       });
+      const tokenData = await tokenRes.json();
 
-      avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        onSpeakComplete?.();
-      });
+      if (!tokenData.token) {
+        throw new Error(tokenData.error || "No token received");
+      }
 
-      avatar.on(StreamingEvents.STREAM_READY, (event) => {
-        if (videoRef.current && event.detail) {
-          videoRef.current.srcObject = event.detail as MediaStream;
-          videoRef.current.play().catch(console.error);
+      // Initialize LiveAvatar session
+      const session = new LiveAvatarSession(tokenData.token);
+      sessionRef.current = session;
+
+      // Stream ready — attach to video element via SDK method
+      session.on(SessionEvent.SESSION_STREAM_READY, () => {
+        if (videoRef.current) {
+          session.attach(videoRef.current);
         }
         setStatus("ready");
         onReady?.();
       });
 
-      avatar.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+      session.on(SessionEvent.SESSION_DISCONNECTED, () => {
         setStatus("error");
-        setErrorMsg("Stream disconnected");
-        onError?.("Stream disconnected");
+        setErrorMsg("Session disconnected");
+        onError?.("Session disconnected");
       });
 
-      await avatar.createStartAvatar({
-        quality: AvatarQuality.Low,
-        avatarName: avatarId,
-        voice: {
-          voiceId: "2f72ee82b83d4b00af16c4771d611752", // Jenny - Professional EN female
-          emotion: VoiceEmotion.FRIENDLY,
-        },
-        language: "en",
-      });
+      // Start the session
+      await session.start();
+
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to initialize avatar";
       setStatus("error");
       setErrorMsg(message);
       onError?.(message);
     }
-  }, [apiKey, avatarId, onReady, onError, onSpeakComplete]);
+  }, [onReady, onError]);
 
   useEffect(() => {
     initAvatar();
-
     return () => {
-      avatarRef.current?.stopAvatar().catch(console.error);
+      sessionRef.current?.stop().catch(console.error);
     };
   }, [initAvatar]);
 
+  // Speak when new text arrives
   useEffect(() => {
-    if (!pendingSpeak || status !== "ready" || !avatarRef.current) return;
-
-    avatarRef.current
-      .speak({
-        text: pendingSpeak,
-        taskType: TaskType.REPEAT,
-      })
-      .catch(console.error);
+    if (!pendingSpeak || status !== "ready" || !sessionRef.current) return;
+    try {
+      sessionRef.current.message(pendingSpeak);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      onSpeakComplete?.();
+    }
   }, [pendingSpeak, status]);
 
-  if (!apiKey || !avatarId || status === "error") {
+  if (status === "error") {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0a] to-[#111] rounded-t-xl">
         <div className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mb-4">
           <span className="text-gold font-semibold text-2xl">IV</span>
         </div>
-        <p className="text-gray-500 text-xs text-center px-4">
-          {errorMsg || "InVentures AI Assistant"}
-        </p>
-        {errorMsg && (
-          <p className="text-gray-600 text-xs mt-1 text-center px-4">
-            Text mode active
-          </p>
-        )}
+        <p className="text-gray-500 text-xs text-center px-4">{errorMsg || "Text mode active"}</p>
       </div>
     );
   }
@@ -141,6 +111,7 @@ export default function AvatarVideo({
               />
             ))}
           </div>
+          <p className="text-gray-500 text-xs mt-3">Connecting to avatar…</p>
         </div>
       )}
       <video

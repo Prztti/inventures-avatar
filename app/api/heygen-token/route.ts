@@ -1,44 +1,54 @@
 export const runtime = "nodejs";
 
+// LiveAvatar public avatars for InVentures
+// Elenora Tech Expert: 8175dfc2-7858-49d6-b5fa-0c135d1c4bad
+// Judy Lawyer:         6e32f90a-f566-45be-9ec7-a5f6999ee606
+// June HR:             65f9e3c9-d48b-4118-b73a-4ae2e3cbb8f0
+const AVATAR_ID = process.env.LIVEAVATAR_AVATAR_ID || "8175dfc2-7858-49d6-b5fa-0c135d1c4bad";
+
 export async function POST() {
-  const apiKey = process.env.NEXT_PUBLIC_HEYGEN_API_KEY;
+  const apiKey = process.env.LIVEAVATAR_API_KEY;
 
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: "HeyGen API key not configured" }), {
+    return new Response(JSON.stringify({ error: "LiveAvatar API key not configured" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
 
   try {
-    const res = await fetch("https://api.heygen.com/v1/streaming.create_token", {
+    const res = await fetch("https://api.liveavatar.com/v1/sessions/token", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        mode: "LITE",
+        avatar_id: AVATAR_ID,
+      }),
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      return new Response(JSON.stringify({ error: `HeyGen error: ${err}` }), {
-        status: res.status,
+    const data = await res.json();
+
+    if (data.code !== 1000) {
+      return new Response(JSON.stringify({ error: data.message || "LiveAvatar error" }), {
+        status: 500,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const data = await res.json();
-    // HeyGen returns { data: { token: "..." } }
-    const token = data?.data?.token;
-
-    return new Response(JSON.stringify({ token }), {
+    return new Response(JSON.stringify({
+      token: data.data.session_token,
+      sessionId: data.data.session_id,
+    }), {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "https://inventures.at",
       },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Failed to get HeyGen token" }), {
+    return new Response(JSON.stringify({ error: "Failed to get LiveAvatar token" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
