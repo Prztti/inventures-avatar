@@ -287,30 +287,12 @@ export default function AvatarWidget({ embedded = false }: { embedded?: boolean 
             </div>
           </div>
 
-          {/* Video area (only if HeyGen available) */}
-          {/* Avatar video area — only loads after user clicks Start */}
+          {/* Avatar area — Web Speech API, no credits needed */}
           <div className="h-48 flex-shrink-0 border-b border-panel-border relative">
-            {avatarStarted ? (
-              <AvatarVideo
-                pendingSpeak={pendingSpeak}
-                onSpeakComplete={() => setPendingSpeak(undefined)}
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0a] to-[#111]">
-                <div className="w-16 h-16 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mb-3">
-                  <span className="text-gold font-semibold text-xl">IV</span>
-                </div>
-                <button
-                  onClick={() => setAvatarStarted(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gold/20 border border-gold/40 text-gold text-xs font-medium hover:bg-gold/30 transition-colors"
-                >
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                  Start Video Avatar
-                </button>
-              </div>
-            )}
+            <AvatarVideo
+              pendingSpeak={pendingSpeak}
+              onSpeakComplete={() => setPendingSpeak(undefined)}
+            />
           </div>
 
           {/* Chat messages */}

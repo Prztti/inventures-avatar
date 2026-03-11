@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { LiveAvatarSession, SessionEvent } from "@heygen/liveavatar-web-sdk";
+import { useEffect, useRef, useState } from "react";
 
 interface AvatarVideoProps {
   onReady?: () => void;
@@ -12,124 +11,128 @@ interface AvatarVideoProps {
 
 export default function AvatarVideo({
   onReady,
-  onError,
   pendingSpeak,
   onSpeakComplete,
 }: AvatarVideoProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const sessionRef = useRef<LiveAvatarSession | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [speaking, setSpeaking] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const initAvatar = useCallback(async (retries = 3) => {
-    setStatus("loading");
-
-    try {
-      // Get session token from backend
-      const tokenRes = await fetch("https://inventures-avatar.vercel.app/api/heygen-token", {
-        method: "POST",
-      });
-      const tokenData = await tokenRes.json();
-
-      if (!tokenData.token) {
-        // Auto-retry on concurrency limit (old session still closing)
-        if (tokenData.concurrency && retries > 0) {
-          setTimeout(() => initAvatar(retries - 1), 4000);
-          return;
-        }
-        throw new Error(tokenData.error || "No token received");
-      }
-
-      // Initialize LiveAvatar session
-      const session = new LiveAvatarSession(tokenData.token);
-      sessionRef.current = session;
-
-      // Stream ready — attach to video element via SDK method
-      session.on(SessionEvent.SESSION_STREAM_READY, () => {
-        if (videoRef.current) {
-          session.attach(videoRef.current);
-        }
-        setStatus("ready");
-        onReady?.();
-      });
-
-      session.on(SessionEvent.SESSION_DISCONNECTED, () => {
-        setStatus("error");
-        setErrorMsg("Session disconnected");
-        onError?.("Session disconnected");
-      });
-
-      // Start the session
-      await session.start();
-
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to initialize avatar";
-      setStatus("error");
-      setErrorMsg(message);
-      onError?.(message);
-    }
-  }, [onReady, onError]);
-
+  // Init — check support & signal ready
   useEffect(() => {
-    initAvatar();
-    return () => {
-      sessionRef.current?.stop().catch(console.error);
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      setSupported(false);
+      return;
+    }
+    // Voices may load async
+    const tryReady = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0 || true) {
+        onReady?.();
+      }
     };
-  }, [initAvatar]);
+    window.speechSynthesis.onvoiceschanged = tryReady;
+    tryReady();
+  }, [onReady]);
 
   // Speak when new text arrives
   useEffect(() => {
-    if (!pendingSpeak || status !== "ready" || !sessionRef.current) return;
-    try {
-      // repeat() = AVATAR_SPEAK_TEXT — direct TTS (works in CUSTOM mode)
-      sessionRef.current.repeat(pendingSpeak);
-    } catch (e) {
-      console.error("speak error:", e);
-    } finally {
-      // Small delay before clearing so avatar has time to start
-      setTimeout(() => onSpeakComplete?.(), 500);
+    if (!pendingSpeak || !supported) {
+      if (pendingSpeak) onSpeakComplete?.();
+      return;
     }
-  }, [pendingSpeak, status]);
 
-  if (status === "error") {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0a0a0a] to-[#111] rounded-t-xl">
-        <div className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mb-4">
-          <span className="text-gold font-semibold text-2xl">IV</span>
-        </div>
-        <p className="text-gray-500 text-xs text-center px-4">{errorMsg || "Text mode active"}</p>
-      </div>
-    );
-  }
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
 
+    const utter = new SpeechSynthesisUtterance(pendingSpeak);
+    utteranceRef.current = utter;
+
+    // Pick best available voice — prefer high-quality English female
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = [
+      "Samantha", "Karen", "Moira",           // Safari/macOS high quality
+      "Google UK English Female",              // Chrome
+      "Microsoft Zira",                        // Windows
+      "en-US",                                 // fallback language match
+    ];
+    let chosen: SpeechSynthesisVoice | null = null;
+    for (const name of preferred) {
+      const v = voices.find(
+        (v) => v.name.includes(name) || v.lang.startsWith(name)
+      );
+      if (v) { chosen = v; break; }
+    }
+    if (!chosen) chosen = voices.find((v) => v.lang.startsWith("en")) ?? null;
+    if (chosen) utter.voice = chosen;
+
+    utter.rate = 0.95;
+    utter.pitch = 1.05;
+    utter.volume = 1;
+
+    utter.onstart = () => setSpeaking(true);
+    utter.onend = () => {
+      setSpeaking(false);
+      onSpeakComplete?.();
+    };
+    utter.onerror = () => {
+      setSpeaking(false);
+      onSpeakComplete?.();
+    };
+
+    window.speechSynthesis.speak(utter);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [pendingSpeak, supported, onSpeakComplete]);
+
+  // Animated avatar — pulsing when speaking
   return (
-    <div className="relative w-full h-full bg-[#0a0a0a] rounded-t-xl overflow-hidden">
-      {status === "loading" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-          <div className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mb-4">
-            <span className="text-gold font-semibold text-2xl">IV</span>
+    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0f0f0f] to-[#0a0a0a] rounded-t-xl">
+      {/* Avatar circle with speaking animation */}
+      <div className="relative">
+        {/* Outer pulse ring when speaking */}
+        {speaking && (
+          <>
+            <div className="absolute inset-0 rounded-full bg-gold/20 animate-ping scale-110" />
+            <div className="absolute inset-0 rounded-full bg-gold/10 animate-ping scale-125" style={{ animationDelay: "0.2s" }} />
+          </>
+        )}
+        {/* Avatar image */}
+        <div
+          className={`w-24 h-24 rounded-full border-2 overflow-hidden transition-all duration-300 ${
+            speaking ? "border-gold shadow-lg shadow-gold/30" : "border-gold/40"
+          }`}
+        >
+          {/* Professional portrait placeholder — replace with real photo if available */}
+          <div className="w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] flex items-center justify-center">
+            <span className="text-gold font-semibold text-3xl select-none">IV</span>
           </div>
-          <div className="flex gap-1 mt-3">
-            {[0, 1, 2].map((i) => (
+        </div>
+      </div>
+
+      {/* Speaking indicator */}
+      <div className="mt-4 flex items-center gap-2 h-5">
+        {speaking ? (
+          <>
+            {[0, 1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="w-1.5 h-1.5 rounded-full bg-gold/60 animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
+                className="w-1 rounded-full bg-gold animate-[soundwave_0.6s_ease-in-out_infinite]"
+                style={{
+                  animationDelay: `${i * 0.1}s`,
+                  height: `${8 + (i % 3) * 6}px`,
+                }}
               />
             ))}
-          </div>
-          <p className="text-gray-500 text-xs mt-3">Connecting to avatar…</p>
-        </div>
-      )}
-      <video
-        ref={videoRef}
-        className={`w-full h-full object-cover transition-opacity duration-500 ${
-          status === "ready" ? "opacity-100" : "opacity-0"
-        }`}
-        autoPlay
-        playsInline
-        muted={false}
-      />
+          </>
+        ) : (
+          <p className="text-gray-600 text-xs">
+            {supported ? "Voice ready" : "Text mode"}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
