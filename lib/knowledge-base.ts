@@ -11,7 +11,7 @@ export const knowledgeBase: KnowledgeChunk[] = [
     id: "what-is-inventures",
     topic: "About InVentures",
     content:
-      "InVentures GmbH is a Vienna-based advisory and execution firm with two tracks: (A) AI-driven enterprise transformation — from readiness assessment to implementation of AI agents, workflow automation and data platforms; (B) Real Estate & Hospitality transactions — buy-side/sell-side advisory, project management and deal structuring. No PowerPoint consulting — hands-on execution with measurable results.",
+      "InVentures, a project of Inside Holding & Real Estate GmbH, is a Vienna-based advisory and execution firm with two tracks: (A) AI-driven enterprise transformation — from readiness assessment to implementation of AI agents, workflow automation and data platforms; (B) Real Estate & Hospitality transactions — buy-side/sell-side advisory, project management and deal structuring. No PowerPoint consulting — hands-on execution with measurable results.",
     tags: ["about", "overview", "what", "who"],
   },
   {

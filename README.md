@@ -1,6 +1,6 @@
 # InVentures AI Avatar Widget
 
-A production-ready Next.js 14 AI chat widget for InVentures GmbH. The widget floats in the bottom-right corner of any page, answers visitor questions about InVentures using a RAG pipeline backed by GPT-4o-mini, optionally renders a HeyGen streaming avatar that speaks responses aloud, and captures leads via Resend email.
+A production-ready Next.js 14 AI chat widget for InVentures (a project of Inside Holding & Real Estate GmbH). The widget floats in the bottom-right corner of any page, answers visitor questions about InVentures using a RAG pipeline backed by GPT-4o-mini, optionally renders a HeyGen streaming avatar that speaks responses aloud, and captures leads via Resend email.
 
 ---
 

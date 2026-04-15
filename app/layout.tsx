@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "InVentures AI Avatar",
-  description: "AI-powered advisory assistant for InVentures GmbH",
+  description: "AI-powered advisory assistant for InVentures — a project of Inside Holding & Real Estate GmbH",
 };
 
 export default function RootLayout({
